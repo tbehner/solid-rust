@@ -7,12 +7,56 @@ thread_local! {
     static GLOBAL_PAYROLL_DB: RefCell<PayrollDatabase> = RefCell::new(PayrollDatabase::new());
 }
 
+
+trait PaymentMethod {}
+
+struct HoldMethod {}
+
+impl HoldMethod {
+    fn new() -> HoldMethod {
+        HoldMethod{}
+    }
+}
+
+impl PaymentMethod for HoldMethod{}
+
+trait Schedule {}
+
+struct MonthlySchedule{}
+
+impl MonthlySchedule {
+    fn new() -> MonthlySchedule {
+        MonthlySchedule{}
+    }
+}
+
+impl Schedule for MonthlySchedule{}
+
+
 trait Transaction{
     fn execute(&self) -> Result<(),Error>;
 }
 
 
 trait AddEmployeeTransaction: Transaction {
+    fn employee_id(&self) -> u32;
+    fn employee_name(&self) -> String;
+    fn employee_address(&self) -> String;
+    fn employee_salary(&self) -> f32;
+}
+
+
+impl<T: AddEmployeeTransaction> Transaction for T {
+    fn execute(&self) -> Result<(), Error>{
+        let employee = Employee::new(&self.employee_name(), &self.employee_address());
+
+        GLOBAL_PAYROLL_DB.with(|db| {
+            db.borrow_mut().init();
+            db.borrow_mut().add_employee(self.employee_id(), employee)
+        });
+
+        Ok(())
+    }
 }
 
 
@@ -36,21 +80,23 @@ impl AddSalariedEmployee{
 }
 
 
-impl Transaction for AddSalariedEmployee {
-    fn execute(&self) -> Result<(), Error>{
-        let employee = Employee::new(&self.its_name, &self.its_address);
+impl AddEmployeeTransaction for AddSalariedEmployee{
+    fn employee_id(&self) -> u32 {
+        self.its_empid
+    }
 
-        GLOBAL_PAYROLL_DB.with(|db| {
-            db.borrow_mut().init();
-            db.borrow_mut().add_employee(self.its_empid, employee)
-        });
+    fn employee_name(&self) -> String {
+        self.its_name.clone()
+    }
 
-        Ok(())
+    fn employee_address(&self) -> String {
+        self.its_address.clone()
+    }
+
+    fn employee_salary(&self) -> f32 {
+        self.its_salary
     }
 }
-
-
-impl AddEmployeeTransaction for AddSalariedEmployee{}
 
 
 
