@@ -1,7 +1,10 @@
 use failure::Error;
 use crate::employee::Employee;
 use crate::database::PayrollDatabase;
+use crate::employee::{PaymentClassification, SalariedClassification};
 use std::cell::RefCell;
+use std::any::Any;
+use std::rc::Rc;
 
 thread_local! {
     static GLOBAL_PAYROLL_DB: RefCell<PayrollDatabase> = RefCell::new(PayrollDatabase::new());
@@ -20,18 +23,6 @@ impl HoldMethod {
 
 impl PaymentMethod for HoldMethod{}
 
-trait Schedule {}
-
-struct MonthlySchedule{}
-
-impl MonthlySchedule {
-    fn new() -> MonthlySchedule {
-        MonthlySchedule{}
-    }
-}
-
-impl Schedule for MonthlySchedule{}
-
 
 trait Transaction{
     fn execute(&self) -> Result<(),Error>;
@@ -43,12 +34,18 @@ trait AddEmployeeTransaction: Transaction {
     fn employee_name(&self) -> String;
     fn employee_address(&self) -> String;
     fn employee_salary(&self) -> f32;
+
+    fn get_classification(&self) -> Rc<dyn PaymentClassification>;
 }
 
 
 impl<T: AddEmployeeTransaction> Transaction for T {
     fn execute(&self) -> Result<(), Error>{
-        let employee = Employee::new(&self.employee_name(), &self.employee_address());
+        let employee = Employee::new(
+            &self.employee_name(), 
+            &self.employee_address(),
+            self.get_classification(),
+            );
 
         GLOBAL_PAYROLL_DB.with(|db| {
             db.borrow_mut().init();
@@ -96,8 +93,11 @@ impl AddEmployeeTransaction for AddSalariedEmployee{
     fn employee_salary(&self) -> f32 {
         self.its_salary
     }
-}
 
+    fn get_classification(&self) -> Rc<dyn PaymentClassification> {
+        Rc::new(SalariedClassification::new(self.employee_salary()))
+    }
+}
 
 
 #[cfg(test)]
@@ -115,6 +115,8 @@ mod tests {
             let employee = db.get_employee(emp_id);
             assert_eq!("Bob", employee.get_name());
             assert_eq!("Home", employee.get_address());
+
+            assert!(employee.get_classification().as_any().downcast_ref::<SalariedClassification>().is_some())
         });
     }
 }
