@@ -1,6 +1,7 @@
 use failure::Error;
 use crate::employee::Employee;
 use crate::database::PayrollDatabase;
+use crate::employee::{PaymentSchedule, MonthlySchedule};
 use crate::employee::{PaymentClassification, SalariedClassification};
 use std::cell::RefCell;
 use std::any::Any;
@@ -36,6 +37,7 @@ trait AddEmployeeTransaction: Transaction {
     fn employee_salary(&self) -> f32;
 
     fn get_classification(&self) -> Rc<dyn PaymentClassification>;
+    fn get_schedule(&self) -> Rc<dyn PaymentSchedule>;
 }
 
 
@@ -45,6 +47,7 @@ impl<T: AddEmployeeTransaction> Transaction for T {
             &self.employee_name(), 
             &self.employee_address(),
             self.get_classification(),
+            self.get_schedule(),
             );
 
         GLOBAL_PAYROLL_DB.with(|db| {
@@ -94,6 +97,10 @@ impl AddEmployeeTransaction for AddSalariedEmployee{
         self.its_salary
     }
 
+    fn get_schedule(&self) -> Rc<dyn PaymentSchedule> {
+        Rc::new(MonthlySchedule::new())
+    }
+
     fn get_classification(&self) -> Rc<dyn PaymentClassification> {
         Rc::new(SalariedClassification::new(self.employee_salary()))
     }
@@ -116,7 +123,8 @@ mod tests {
             assert_eq!("Bob", employee.get_name());
             assert_eq!("Home", employee.get_address());
 
-            assert!(employee.get_classification().as_any().downcast_ref::<SalariedClassification>().is_some())
+            assert!(employee.get_classification().as_any().downcast_ref::<SalariedClassification>().is_some());
+            assert!(employee.get_schedule().as_any().downcast_ref::<MonthlySchedule>().is_some());
         });
     }
 }
