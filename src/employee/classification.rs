@@ -12,6 +12,10 @@ impl SalariedClassification {
     pub fn new(value: f32) -> SalariedClassification {
         SalariedClassification{value: value}
     }
+
+    pub fn get_salary(&self) -> f32 {
+        self.value
+    }
 }
 
 impl PaymentClassification for SalariedClassification {

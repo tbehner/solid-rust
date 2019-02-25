@@ -123,7 +123,10 @@ mod tests {
             assert_eq!("Bob", employee.get_name());
             assert_eq!("Home", employee.get_address());
 
-            assert!(employee.get_classification().as_any().downcast_ref::<SalariedClassification>().is_some());
+            let classification = employee.get_classification();
+            let sc = classification.as_any().downcast_ref::<SalariedClassification>();
+            assert!(sc.is_some());
+            assert_eq!(sc.unwrap().get_salary(), 1000.00);
             assert!(employee.get_schedule().as_any().downcast_ref::<MonthlySchedule>().is_some());
         });
     }
