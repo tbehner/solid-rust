@@ -3,26 +3,14 @@ use crate::employee::Employee;
 use crate::database::PayrollDatabase;
 use crate::employee::{PaymentSchedule, MonthlySchedule};
 use crate::employee::{PaymentClassification, SalariedClassification};
+use crate::employee::{PaymentMethod, HoldMethod};
 use std::cell::RefCell;
-use std::any::Any;
 use std::rc::Rc;
 
 thread_local! {
     static GLOBAL_PAYROLL_DB: RefCell<PayrollDatabase> = RefCell::new(PayrollDatabase::new());
 }
 
-
-trait PaymentMethod {}
-
-struct HoldMethod {}
-
-impl HoldMethod {
-    fn new() -> HoldMethod {
-        HoldMethod{}
-    }
-}
-
-impl PaymentMethod for HoldMethod{}
 
 
 trait Transaction{
@@ -38,6 +26,7 @@ trait AddEmployeeTransaction: Transaction {
 
     fn get_classification(&self) -> Rc<dyn PaymentClassification>;
     fn get_schedule(&self) -> Rc<dyn PaymentSchedule>;
+    fn get_payment_method(&self) -> Rc<dyn PaymentMethod>;
 }
 
 
@@ -48,6 +37,7 @@ impl<T: AddEmployeeTransaction> Transaction for T {
             &self.employee_address(),
             self.get_classification(),
             self.get_schedule(),
+            self.get_payment_method(),
             );
 
         GLOBAL_PAYROLL_DB.with(|db| {
@@ -104,6 +94,10 @@ impl AddEmployeeTransaction for AddSalariedEmployee{
     fn get_classification(&self) -> Rc<dyn PaymentClassification> {
         Rc::new(SalariedClassification::new(self.employee_salary()))
     }
+
+    fn get_payment_method(&self) -> Rc<dyn PaymentMethod> {
+        Rc::new(HoldMethod::new())
+    }
 }
 
 
@@ -127,7 +121,9 @@ mod tests {
             let sc = classification.as_any().downcast_ref::<SalariedClassification>();
             assert!(sc.is_some());
             assert_eq!(sc.unwrap().get_salary(), 1000.00);
+
             assert!(employee.get_schedule().as_any().downcast_ref::<MonthlySchedule>().is_some());
+            assert!(employee.get_method().as_any().downcast_ref::<HoldMethod>().is_some());
         });
     }
 }
