@@ -1,9 +1,10 @@
-use std::any::Any;
+use std::string::String;
 
 pub trait PaymentSchedule {
-    fn as_any(&self) -> &dyn Any;
+    fn when_do_i_get_paid(&self) -> String;
 }
 
+pub struct BiWeeklySchedule{}
 pub struct MonthlySchedule{}
 
 impl MonthlySchedule {
@@ -12,8 +13,19 @@ impl MonthlySchedule {
     }
 }
 
+impl BiWeeklySchedule{
+    pub fn new() -> BiWeeklySchedule{
+        BiWeeklySchedule{}
+    }
+}
+
+impl PaymentSchedule for BiWeeklySchedule{
+    fn when_do_i_get_paid(&self) -> String{
+        String::from("every two weeks")
+    }
+}
 impl PaymentSchedule for MonthlySchedule{
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn when_do_i_get_paid(&self) -> String{
+        String::from("every four weeks")
     }
 }

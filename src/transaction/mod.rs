@@ -1,7 +1,7 @@
 use failure::Error;
 use crate::employee::Employee;
 use crate::database::PayrollDatabase;
-use crate::employee::{PaymentSchedule, MonthlySchedule};
+use crate::employee::{PaymentSchedule, MonthlySchedule, BiWeeklySchedule};
 use crate::employee::{PaymentClassification, SalariedClassification};
 use crate::employee::{PaymentMethod, HoldMethod};
 use std::cell::RefCell;
@@ -33,7 +33,7 @@ trait AddEmployeeTransaction: Transaction {
 impl<T: AddEmployeeTransaction> Transaction for T {
     fn execute(&self) -> Result<(), Error>{
         let employee = Employee::new(
-            &self.employee_name(), 
+            &self.employee_name(),
             &self.employee_address(),
             self.get_classification(),
             self.get_schedule(),
@@ -55,16 +55,18 @@ struct AddSalariedEmployee{
     its_address: String,
     its_name: String,
     its_salary: f32,
+    its_schedule: Rc<dyn PaymentSchedule>
 }
 
 
 impl AddSalariedEmployee{
-    fn new(empid: u32, name: &str, address: &str, salary: f32) -> AddSalariedEmployee {
+    fn new(empid: u32, name: &str, address: &str, salary: f32, schedule: Rc<dyn PaymentSchedule>) -> AddSalariedEmployee {
         AddSalariedEmployee{
             its_empid: empid,
             its_name: String::from(name),
             its_address: String::from(address),
             its_salary: salary,
+            its_schedule: schedule,
         }
     }
 }
@@ -88,7 +90,7 @@ impl AddEmployeeTransaction for AddSalariedEmployee{
     }
 
     fn get_schedule(&self) -> Rc<dyn PaymentSchedule> {
-        Rc::new(MonthlySchedule::new())
+        self.its_schedule.clone()
     }
 
     fn get_classification(&self) -> Rc<dyn PaymentClassification> {
@@ -105,25 +107,48 @@ impl AddEmployeeTransaction for AddSalariedEmployee{
 mod tests {
     use super::*;
 
-    #[test]
-    fn create_employee(){
-        let emp_id = 1;
-        let t = AddSalariedEmployee::new(emp_id, "Bob", "Home", 1000.00);
+    fn add_employee(id: u32, schedule: Rc<dyn PaymentSchedule>){
+        let t = AddSalariedEmployee::new(id, "Bob", "Home", 1000.00, schedule);
         assert!(t.execute().is_ok(), "Could not add a salaried employee!");
+    }
+
+    #[test]
+    fn employee_has_correct_stats(){
+        let emp_id = 0;
+        add_employee(emp_id, Rc::new(MonthlySchedule::new()));
 
         GLOBAL_PAYROLL_DB.with(|connection| {
             let db = connection.borrow();
             let employee = db.get_employee(emp_id);
             assert_eq!("Bob", employee.get_name());
             assert_eq!("Home", employee.get_address());
-
             let classification = employee.get_classification();
             let sc = classification.as_any().downcast_ref::<SalariedClassification>();
             assert!(sc.is_some());
             assert_eq!(sc.unwrap().get_salary(), 1000.00);
-
-            assert!(employee.get_schedule().as_any().downcast_ref::<MonthlySchedule>().is_some());
             assert!(employee.get_method().as_any().downcast_ref::<HoldMethod>().is_some());
+        });
+    }
+
+    #[test]
+    fn monthly_employee_is_created(){
+        let emp_id = 1;
+        add_employee(emp_id, Rc::new(MonthlySchedule::new()));
+        GLOBAL_PAYROLL_DB.with(|connection| {
+            let db = connection.borrow();
+            let employee = db.get_employee(emp_id);
+            assert_eq!(String::from("every four weeks"), employee.get_schedule().when_do_i_get_paid());
+        });
+    }
+
+    #[test]
+    fn biweekly_employee_is_created(){
+        let emp_id = 2;
+        add_employee(emp_id, Rc::new(BiWeeklySchedule::new()));
+        GLOBAL_PAYROLL_DB.with(|connection| {
+            let db = connection.borrow();
+            let employee = db.get_employee(emp_id);
+            assert_eq!(String::from("every two weeks"), employee.get_schedule().when_do_i_get_paid());
         });
     }
 }
