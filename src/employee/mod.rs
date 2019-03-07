@@ -2,8 +2,8 @@ mod classification;
 mod schedule;
 mod method;
 
-pub use self::classification::{PaymentClassification, SalariedClassification};
-pub use self::schedule::{PaymentSchedule, MonthlySchedule, BiWeeklySchedule};
+pub use self::classification::{PaymentClassification, SalariedClassification, HourlyClassification};
+pub use self::schedule::{PaymentSchedule, MonthlySchedule, BiWeeklySchedule, WeeklySchedule};
 pub use self::method::{PaymentMethod, HoldMethod};
 
 use std::rc::Rc;

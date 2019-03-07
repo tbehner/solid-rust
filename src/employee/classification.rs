@@ -24,4 +24,22 @@ impl PaymentClassification for SalariedClassification {
     }
 }
 
+pub struct HourlyClassification {
+    value: f32,
+}
 
+impl HourlyClassification {
+    pub fn new(value: f32) -> HourlyClassification {
+        HourlyClassification{value: value}
+    }
+
+    pub fn get_salary(&self) -> f32 {
+        self.value
+    }
+}
+
+impl PaymentClassification for HourlyClassification {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
