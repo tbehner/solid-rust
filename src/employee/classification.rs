@@ -1,4 +1,6 @@
 use std::any::Any;
+use crate::employee::TimeCard;
+use chrono::prelude::*;
 
 pub trait PaymentClassification{
     fn as_any(&self) -> &dyn Any;
@@ -26,15 +28,27 @@ impl PaymentClassification for SalariedClassification {
 
 pub struct HourlyClassification {
     value: f32,
+    time_card: Option<TimeCard>,
 }
 
 impl HourlyClassification {
     pub fn new(value: f32) -> HourlyClassification {
-        HourlyClassification{value: value}
+        HourlyClassification{value: value, time_card: None}
     }
 
     pub fn get_salary(&self) -> f32 {
         self.value
+    }
+
+    pub fn add_time_card(&mut self, tc: TimeCard) {
+        self.time_card = Some(tc)
+    }
+
+    pub fn get_time_card(&self, _date: &chrono::Date<Local>) -> Option<TimeCard> {
+        match self.time_card {
+            Some(ref tc) => Some(*tc),
+            None => None,
+        }
     }
 }
 

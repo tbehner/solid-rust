@@ -1,11 +1,16 @@
 use failure::Error;
+
 use crate::employee::Employee;
 use crate::database::PayrollDatabase;
 use crate::employee::{PaymentSchedule, MonthlySchedule, BiWeeklySchedule, WeeklySchedule};
 use crate::employee::{PaymentClassification, SalariedClassification, HourlyClassification};
 use crate::employee::{PaymentMethod, HoldMethod};
+use crate::employee::TimeCard;
 use std::cell::RefCell;
 use std::rc::Rc;
+use chrono::prelude::*;
+
+type EmployeeId = u32;
 
 thread_local! {
     static GLOBAL_PAYROLL_DB: RefCell<PayrollDatabase> = RefCell::new(PayrollDatabase::new());
@@ -19,7 +24,7 @@ trait Transaction{
 
 
 trait AddEmployeeTransaction: Transaction {
-    fn employee_id(&self) -> u32;
+    fn employee_id(&self) -> EmployeeId;
     fn employee_name(&self) -> String;
     fn employee_address(&self) -> String;
     fn employee_salary(&self) -> f32;
@@ -51,7 +56,7 @@ impl<T: AddEmployeeTransaction> Transaction for T {
 
 
 struct AddSalariedEmployee{
-    its_empid: u32,
+    its_empid: EmployeeId,
     its_address: String,
     its_name: String,
     its_salary: f32,
@@ -60,7 +65,7 @@ struct AddSalariedEmployee{
 
 
 impl AddSalariedEmployee{
-    fn new(empid: u32, name: &str, address: &str, salary: f32, schedule: Rc<dyn PaymentSchedule>) -> AddSalariedEmployee {
+    fn new(empid: EmployeeId, name: &str, address: &str, salary: f32, schedule: Rc<dyn PaymentSchedule>) -> AddSalariedEmployee {
         AddSalariedEmployee{
             its_empid: empid,
             its_name: String::from(name),
@@ -73,7 +78,7 @@ impl AddSalariedEmployee{
 
 
 impl AddEmployeeTransaction for AddSalariedEmployee{
-    fn employee_id(&self) -> u32 {
+    fn employee_id(&self) -> EmployeeId {
         self.its_empid
     }
 
@@ -104,7 +109,7 @@ impl AddEmployeeTransaction for AddSalariedEmployee{
 
 
 struct AddHourlyEmployee{
-    its_empid: u32,
+    its_empid: EmployeeId,
     its_address: String,
     its_name: String,
     its_hourly_rate: f32,
@@ -113,7 +118,7 @@ struct AddHourlyEmployee{
 
 
 impl AddHourlyEmployee{
-    fn new(empid: u32, name: &str, address: &str, salary: f32, schedule: Rc<dyn PaymentSchedule>) -> AddHourlyEmployee {
+    fn new(empid: EmployeeId, name: &str, address: &str, salary: f32, schedule: Rc<dyn PaymentSchedule>) -> AddHourlyEmployee {
         AddHourlyEmployee{
             its_empid: empid,
             its_name: String::from(name),
@@ -126,7 +131,7 @@ impl AddHourlyEmployee{
 
 
 impl AddEmployeeTransaction for AddHourlyEmployee{
-    fn employee_id(&self) -> u32 {
+    fn employee_id(&self) -> EmployeeId {
         self.its_empid
     }
 
@@ -153,9 +158,41 @@ impl AddEmployeeTransaction for AddHourlyEmployee{
     fn get_payment_method(&self) -> Rc<dyn PaymentMethod> {
         Rc::new(HoldMethod::new())
     }
+}
 
+struct TimeCardTransaction {
+    // FIXME this will be some chrono type
+    its_date: Date<Local>,
+    // FIXME I don't even know what this is going to be
+    its_hours: f32,
+    its_empid: EmployeeId,
+}
 
+impl TimeCardTransaction {
+    fn new(date: Date<Local>, hours: f32, empid: EmployeeId) -> TimeCardTransaction {
+        TimeCardTransaction{
+            its_date: date,
+            its_hours: hours,
+            its_empid: empid,
+        }
+    }
+}
 
+impl Transaction for TimeCardTransaction {
+    fn execute(&self) -> Result<(), Error> {
+        GLOBAL_PAYROLL_DB.with(|connection| {
+            let db = connection.borrow();
+            let employee = db.get_employee(self.its_empid);
+            let classification = employee.get_classification();
+            match classification.as_any().downcast_mut::<HourlyClassification>() {
+                Some(hc) => hc.add_time_card(TimeCard::new(self.its_date, self.its_hours)),
+                None => bail!("Tried to add timecard to non-hourly employee"),
+            }
+            Ok(())
+        });
+
+        Ok(())
+    }
 }
 
 
@@ -179,9 +216,9 @@ mod tests {
             assert_eq!("Bob", employee.get_name());
             assert_eq!("Home", employee.get_address());
             let classification = employee.get_classification();
-            let sc = classification.as_any().downcast_ref::<SalariedClassification>();
-            assert!(sc.is_some());
-            assert_eq!(sc.unwrap().get_salary(), 1000.00);
+            assert!(classification.as_any().downcast_ref::<SalariedClassification>().is_some());
+            let sc = classification.as_any().downcast_ref::<SalariedClassification>().unwrap();
+            assert_eq!(sc.get_salary(), 1000.00);
             assert!(employee.get_method().as_any().downcast_ref::<HoldMethod>().is_some());
         });
     }
@@ -214,5 +251,21 @@ mod tests {
         let schedule = Rc::new(WeeklySchedule::new());
         let add_transaction = AddHourlyEmployee::new(emp_id, "Bill", "Home", 15.25, schedule);
         assert!(add_transaction.execute().is_ok(), "Could not add hourle employee!");
+
+        let tct = TimeCardTransaction::new(Local.ymd(2001,10,31), 8.0, emp_id);
+        assert!(tct.execute().is_ok());
+
+        GLOBAL_PAYROLL_DB.with(|connection| {
+            let db = connection.borrow();
+            let employee = db.get_employee(emp_id);
+
+            let classification = employee.get_classification();
+            assert!(classification.as_any().downcast_ref::<HourlyClassification>().is_some());
+            let hc = classification.as_any().downcast_ref::<HourlyClassification>().unwrap();
+
+            let d = Local.ymd(2001,10,31);
+            let time_card = hc.get_time_card(&d);
+            assert_eq!(8.0, time_card.unwrap().get_hours());
+        });
     }
 }

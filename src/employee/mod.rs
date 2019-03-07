@@ -1,10 +1,12 @@
 mod classification;
 mod schedule;
 mod method;
+mod timecard;
 
 pub use self::classification::{PaymentClassification, SalariedClassification, HourlyClassification};
 pub use self::schedule::{PaymentSchedule, MonthlySchedule, BiWeeklySchedule, WeeklySchedule};
 pub use self::method::{PaymentMethod, HoldMethod};
+pub use self::timecard::{TimeCard};
 
 use std::rc::Rc;
 
@@ -20,7 +22,7 @@ impl Employee {
     pub fn new(name: &str, address: &str,
                classification: Rc<dyn PaymentClassification>,
                schedule: Rc<dyn PaymentSchedule>,
-               method: Rc<dyn PaymentMethod>
+               method: Rc<dyn PaymentMethod>,
                ) -> Employee {
 
         Employee{
