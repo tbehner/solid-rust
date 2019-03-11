@@ -9,18 +9,19 @@ pub use self::method::{PaymentMethod, HoldMethod};
 pub use self::timecard::{TimeCard};
 
 use std::rc::Rc;
+use std::cell::RefCell;
 
 pub struct Employee {
     name: String,
     address: String,
-    classification: Rc<dyn PaymentClassification>,
+    classification: Rc<RefCell<dyn PaymentClassification>>,
     schedule: Rc<dyn PaymentSchedule>,
     method: Rc<dyn PaymentMethod>,
 }
 
 impl Employee {
     pub fn new(name: &str, address: &str,
-               classification: Rc<dyn PaymentClassification>,
+               classification: Rc<RefCell<dyn PaymentClassification>>,
                schedule: Rc<dyn PaymentSchedule>,
                method: Rc<dyn PaymentMethod>,
                ) -> Employee {
@@ -43,7 +44,7 @@ impl Employee {
         self.address.as_ref()
     }
 
-    pub fn get_classification(&self) -> Rc<dyn PaymentClassification> {
+    pub fn get_classification(&self) -> Rc<RefCell<dyn PaymentClassification>> {
         self.classification.clone()
     }
 

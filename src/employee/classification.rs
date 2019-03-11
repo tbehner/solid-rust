@@ -4,6 +4,7 @@ use chrono::prelude::*;
 
 pub trait PaymentClassification{
     fn as_any(&self) -> &dyn Any;
+    fn as_mut_any(&mut self) -> &mut dyn Any;
 }
 
 pub struct SalariedClassification{
@@ -22,6 +23,10 @@ impl SalariedClassification {
 
 impl PaymentClassification for SalariedClassification {
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn Any {
         self
     }
 }
@@ -54,6 +59,10 @@ impl HourlyClassification {
 
 impl PaymentClassification for HourlyClassification {
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn Any {
         self
     }
 }
