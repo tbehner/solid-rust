@@ -183,11 +183,10 @@ impl Transaction for TimeCardTransaction {
         GLOBAL_PAYROLL_DB.with(|connection| {
             let db = connection.borrow();
             let employee = db.get_employee(self.its_empid);
-            let classification = employee.get_classification();
-            let mut classification_cell = classification.borrow_mut();
-            let any_classification = classification_cell.as_mut_any();
-            let hc = any_classification.downcast_mut::<HourlyClassification>();
-            match hc {
+            let classification_cell = employee.get_classification();
+            let mut classification = classification_cell.borrow_mut();
+            let any_classification = classification.as_mut_any();
+            match any_classification.downcast_mut::<HourlyClassification>() {
                 Some(hc) => hc.add_time_card(TimeCard::new(self.its_date, self.its_hours)),
                 None => bail!("Tried to add timecard to non-hourly employee"),
             }
@@ -218,10 +217,10 @@ mod tests {
             let employee = db.get_employee(emp_id);
             assert_eq!("Bob", employee.get_name());
             assert_eq!("Home", employee.get_address());
-            let classification = employee.get_classification();
-            let classification_cell = classification.borrow();
-            assert!(classification_cell.as_any().downcast_ref::<SalariedClassification>().is_some());
-            let sc = classification_cell.as_any().downcast_ref::<SalariedClassification>().unwrap();
+            let classification_cell = employee.get_classification();
+            let classification = classification_cell.borrow();
+            assert!(classification.as_any().downcast_ref::<SalariedClassification>().is_some());
+            let sc = classification.as_any().downcast_ref::<SalariedClassification>().unwrap();
             assert_eq!(sc.get_salary(), 1000.00);
             assert!(employee.get_method().as_any().downcast_ref::<HoldMethod>().is_some());
         });
@@ -263,10 +262,10 @@ mod tests {
             let db = connection.borrow();
             let employee = db.get_employee(emp_id);
 
-            let classification = employee.get_classification();
-            let classification_cell = classification.borrow();
-            assert!(classification_cell.as_any().downcast_ref::<HourlyClassification>().is_some());
-            let hc = classification_cell.as_any().downcast_ref::<HourlyClassification>().unwrap();
+            let classification_cell = employee.get_classification();
+            let classification = classification_cell.borrow();
+            assert!(classification.as_any().downcast_ref::<HourlyClassification>().is_some());
+            let hc = classification.as_any().downcast_ref::<HourlyClassification>().unwrap();
 
             let d = Local.ymd(2001,10,31);
             let time_card = hc.get_time_card(&d);
